@@ -26,9 +26,28 @@ then
 fi
 
 timestamp=$(date '+%d%m%Y-%H%M%S')
-tar -cvf /tmp/$myname-httpd-logs-$timestamp.tar /var/log/apache2/*.log
+archived_log_file="/tmp/$myname-httpd-logs-$timestamp.tar"
+tar -cvf $archived_log_file /var/log/apache2/*.log
 
 aws s3 \
-cp /tmp/${myname}-httpd-logs-${timestamp}.tar \
+cp $archived_log_file \
 s3://${s3_bucket}/${myname}-httpd-logs-${timestamp}.tar
 
+bookeeping_file="/var/www/html/inventory.html"
+archived_log_size=`du -sh $archived_log_file | awk '{print $1}'`
+
+if [ ! -e $bookeeping_file ]
+then
+	touch $bookeeping_file
+	echo -e "Log Type\tTime Created\t\tType\t\tSize">>$bookeeping_file
+	echo -e "httpd-logs\t$timestamp\t\ttar\t\t$archived_log_size">>$bookeeping_file
+else
+	echo -e "httpd-logs\t$timestamp\t\ttar\t\t$archived_log_size">>$bookeeping_file
+fi
+
+cronjob_file="/etc/cron.d/automation"
+if [ ! -e $cronjob_file ]
+then
+	touch $cronjob_file
+	echo "0 0 * * * root /root/Automation_Project/automation.sh">>$cronjob_file
+fi
